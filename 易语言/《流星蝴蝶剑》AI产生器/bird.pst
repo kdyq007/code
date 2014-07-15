@@ -1,0 +1,54 @@
+string Name	= "东方不败";
+int Model =   Rand(19);
+int Weapon = 14;
+int Weapon2 =36;
+int Team = 2;
+int View = 10000;
+int Think = 10000;
+int Attack1 = 30;
+int Attack2 = 25;
+int Attack3 = 30;
+int Guard = 20;
+int Dodge = 0;
+int Jump = 1;
+int Look = 1000;
+int Burst = 30;
+int Aim = 100;
+int GetItem = 0;
+int Spawn = 5;
+int HP = 3000;
+	
+
+int gg;	
+int g_selfAddr;
+int g_self;
+int HPlast=0;
+int Stat=0;
+int realHP=0;
+int timer=0;
+
+OnInit(int this)
+{g_selfAddr=this;}
+OnStart(){g_self=GetSelf(g_selfAddr);
+ChangeBehavior(g_self, "follow", "player");
+ChangeBehavior(g_self,"run");}
+OnUpdate(){
+if (gg+5<GetGameTime()) {
+int c = GetSelf(g_selfAddr);
+gg=GetGameTime();
+Perform(c,"use",8);}
+if(Stat==0){Stat++;return 0;}
+if(Stat==1){Stat++;realHP=GetHP(g_self);return 0;}
+if(timer%200==0){Perform(g_self,"use",19);Perform(g_self,"use",8);Perform(g_self,"use",5);Perform(g_self,"use",34);Perform(g_self,"use",40);Perform(g_self,"use",16);timer=0;}
+timer++;
+int HPnow=GetHP(g_self);
+if(HPnow==realHP&&HPlast<realHP){
+HPlast=realHP;
+}
+if(HPnow<HPlast){
+StopPerform(g_self);
+int AtkP=HPlast-HPnow;
+Say(g_self,"[HP:] ",HPnow/10,".",HPnow%10,"   [攻击强度:] ",AtkP/10,".",AtkP%10);
+HPlast=HPnow;
+}
+}
