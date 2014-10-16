@@ -1,0 +1,23 @@
+<?xml version="1.0"?>
+<?xml-stylesheet href="file:///usr/local/bin/../share/nmap/nmap.xsl" type="text/xsl"?>
+<!-- Nmap 6.40 scan initiated Thu Oct 16 15:46:01 2014 as: nmap -T5 -n -sT -sV -p1-65535 -&#45;open -i /tmp/useIP.txt -oX services.xml -->
+<nmaprun scanner="nmap" args="nmap -T5 -n -sT -sV -p1-65535 -&#45;open -i /tmp/useIP.txt -oX services.xml" start="1413445561" startstr="Thu Oct 16 15:46:01 2014" version="6.40" xmloutputversion="1.04">
+<scaninfo type="connect" protocol="tcp" numservices="65535" services="1-65535"/>
+<verbose level="0"/>
+<debugging level="0"/>
+<host starttime="1413445561" endtime="1413446618"><status state="up" reason="echo-reply" reason_ttl="60"/>
+<address addr="1.1.1.1" addrtype="ipv4"/>
+<hostnames>
+</hostnames>
+<ports><extraports state="closed" count="65532">
+<extrareasons reason="conn-refused" count="65532"/>
+</extraports>
+<port protocol="tcp" portid="80"><state state="open" reason="syn-ack" reason_ttl="0"/><service name="http" method="table" conf="3"/></port>
+<port protocol="tcp" portid="443"><state state="open" reason="syn-ack" reason_ttl="0"/><service name="https" method="table" conf="3"/></port>
+<port protocol="tcp" portid="123"><state state="open" reason="syn-ack" reason_ttl="0"/><service name="unknown" method="table" conf="3"/></port>
+</ports>
+<times srtt="2150" rttvar="455" to="50000"/>
+</host>
+<runstats><finished time="1413452840" timestr="Thu Oct 16 17:47:20 2014" elapsed="7279.40" summary="Nmap done at Thu Oct 16 17:47:20 2014; 418 IP addresses (418 hosts up) scanned in 7279.40 seconds" exit="success"/><hosts up="418" down="0" total="418"/>
+</runstats>
+</nmaprun>

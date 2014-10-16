@@ -36,7 +36,7 @@ MSG1=$(nmap -v -sP -iL $USEIP | grep down | grep -oE "[0-9]{1,3}\.[0-9]{1,3}\.[0
 if [[ -n "$MSG1" ]];then
 time=$(date '+%s')
 md5=$(echo -n "$mailpass$time"|md5sum|awk '{print $1}')
-curl "http://sa.123u.com/alert/sendmail.php?rtx_user=sharlockqi@123u.com&msg=报告大王！$MSG1的IP发生异常不能ping通，请检查。&time=$time&secret=$md5&email_user=sharlockqi@123u.com"
+curl "http://xxx.xxx.com/alert/sendmail.php?rtx_user=sharlockqi@123u.com&msg=报告大王！$MSG1的IP发生异常不能ping通，请检查。&time=$time&secret=$md5&email_user=sharlockqi@123u.com"
 fi
 
 # ping the nouseIP,exclude(--excludefile excludeIP.txt)
@@ -46,7 +46,10 @@ MSG2=$(nmap -sP -iL $NOUSEIP | grep -oE "[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-
 if [[ -n "$MSG2" ]];then
 time=$(date '+%s')
 md5=$(echo -n "$mailpass$time"|md5sum|awk '{print $1}')
-curl "http://sa.123u.com/alert/sendmail.php?rtx_user=sharlockqi@123u.com&msg=报告大王！发现新增IP：$MSG2请审核。&time=$time&secret=$md5&email_user=sharlockqi@123u.com"
+curl "http://xxx.xxx.com/alert/sendmail.php?rtx_user=sharlockqi@123u.com&msg=报告大王！发现新增IP：$MSG2请审核。&time=$time&secret=$md5&email_user=sharlockqi@123u.com"
 fi
-rm -rf $USEIP
-rm -rf $NOUSEIP
+#rm -rf $USEIP
+#rm -rf $NOUSEIP
+
+cd ./CheckServices/
+python CheckServices.py
