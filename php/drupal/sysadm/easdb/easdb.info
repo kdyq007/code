@@ -1,0 +1,4 @@
+name = easdb
+description = A block module that form to select the eas session mysql database
+version = "7.x-1.0"
+core = 7.x

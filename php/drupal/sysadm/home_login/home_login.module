@@ -1,0 +1,99 @@
+<?php
+
+function home_login_form_alter(&$form, &$form_state, $form_id) {
+	//通过域账号登录
+	if ($form_id == 'user_login_block' || $form_id == 'user_login') {
+	  //$form['#validate'][0] = 'cust_user_login_name_validate';
+	  $form['#validate'][1] = 'cust_user_login_authenticate_validate';
+	  //$form['#validate'][2] = 'cust_user_login_final_validate';
+	  if (isset($form['links'])) {
+	    $form['links']['#markup'] = '<div class="item-list"><ul><li class="first last">忘记域用户名或密码请联系运维部人员</li></ul></div>';
+	  }
+	  //$form['#submit'][0] = 'cust_user_login_submit';
+	}
+}
+
+/**
+ * A validate handler on the login form. Check supplied username/password
+ * against local users table. If successful, $form_state['uid']
+ * is set to the matching user ID.(自定义)
+ */
+function cust_user_login_authenticate_validate($form, &$form_state) {
+  $password = trim($form_state['values']['pass']);
+  if (!empty($form_state['values']['name']) && !empty($password)) {
+    // Do not allow any login from the current user's IP if the limit has been
+    // reached. Default is 50 failed attempts allowed in one hour. This is
+    // independent of the per-user limit to catch attempts from one IP to log
+    // in to many different user accounts.  We have a reasonably high limit
+    // since there may be only one apparent IP for all users at an institution.
+    if (!flood_is_allowed('failed_login_attempt_ip', variable_get('user_failed_login_ip_limit', 50), variable_get('user_failed_login_ip_window', 3600))) {
+      $form_state['flood_control_triggered'] = 'ip';
+      return;
+    }
+    $account = db_query("SELECT * FROM {users} WHERE name = :name AND status = 1", array(':name' => $form_state['values']['name']))->fetchObject();
+    if ($account) {
+      if (variable_get('user_failed_login_identifier_uid_only', FALSE)) {
+        // Register flood events based on the uid only, so they apply for any
+        // IP address. This is the most secure option.
+        $identifier = $account->uid;
+      }
+      else {
+        // The default identifier is a combination of uid and IP address. This
+        // is less secure but more resistant to denial-of-service attacks that
+        // could lock out all users with public user names.
+        $identifier = $account->uid . '-' . ip_address();
+      }
+      $form_state['flood_control_user_identifier'] = $identifier;
+
+      // Don't allow login if the limit for this user has been reached.
+      // Default is to allow 5 failed attempts every 6 hours.
+      if (!flood_is_allowed('failed_login_attempt_user', variable_get('user_failed_login_user_limit', 5), variable_get('user_failed_login_user_window', 21600), $identifier)) {
+        $form_state['flood_control_triggered'] = 'user';
+        return;
+      }
+    }
+    // We are not limited by flood control, so try to authenticate.
+    // Set $form_state['uid'] as a flag for user_login_final_validate().
+    //如果是公司账号则走域验证
+    //如果域用户名
+    $real_jy_uid = null;
+    $uid_by_domain_name = db_query("SELECT uid FROM {users} WHERE mail = :m", array(':m' => $form_state['values']['name'] . '@123u.com'))->fetchField();
+    if ($uid_by_domain_name) {
+      $real_jy_uid = $uid_by_domain_name;
+    }
+    //如果是drupal用户名
+    $uid_by_username = db_query("SELECT uid FROM {users} WHERE mail LIKE '%@123u.com' AND name = :n", array(':n' => $form_state['values']['name']))->fetchField();
+    if ($uid_by_username) {
+      $real_jy_uid = $uid_by_username;
+    }
+    //如果是邮箱
+    $uid_by_mail = db_query("SELECT uid FROM {users} WHERE mail LIKE '%@123u.com' AND mail = :m", array(':m' => $form_state['values']['name']))->fetchField();
+    if ($uid_by_mail) {
+      $real_jy_uid = $uid_by_mail;
+    }
+    if ($real_jy_uid) {
+      $mail = db_query("SELECT mail FROM {users} WHERE uid = :u", array(':u' => $real_jy_uid))->fetchField();
+      $domain_name = substr($mail, 0, strpos($mail, '@'));
+      $ch = curl_init();
+      curl_setopt($ch, CURLOPT_URL, 'http://140.207.49.170:123/adapis/index.php');
+      curl_setopt($ch, CURLOPT_TIMEOUT, 10);
+      curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+      curl_setopt($ch, CURLOPT_HEADER, 0);
+      curl_setopt($ch, CURLOPT_POST, 1);//post提交方式
+      $curlPost = 'u=' . $domain_name . '&p=' . urlencode($password);
+      curl_setopt($ch, CURLOPT_POSTFIELDS, $curlPost);
+      $auth_rs = curl_exec($ch);
+      curl_close($ch);
+      $auth = json_decode($auth_rs);
+      if ($auth->auth == true) {
+        $form_state['uid'] = $real_jy_uid;
+      }
+      else {
+        $form_state['uid'] = false;
+      }
+    }
+    else {
+      $form_state['uid'] = user_authenticate($form_state['values']['name'], $password);
+    }
+  }
+}

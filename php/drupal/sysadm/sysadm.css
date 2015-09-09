@@ -1,0 +1,73 @@
+#easdb-filter-form{
+    width:800px;
+}
+#easdata-filter-form .container-inline-date{
+    width:800px;
+    clear:none;
+}
+#easdata-filter-form .form-type-date-popup label{
+    margin-top:20px;
+}
+#easdb-filter-form .form-item,#easdb-filter-form .form-item label,#easdb-filter-form .buttons{
+    float: left;
+    padding: 4px;
+}
+#easdb-filter-form .container-inline-date{
+    clear:none;
+    float: left;
+}
+#easdb-filter-form .form-type-date-popup{
+    margin-left: 20px;
+}
+#easdb-filter-form .form-type-date-popup label{
+    float: left;
+    padding: 10px;
+}
+#easdb-filter-form .date-padding{
+    padding: 0px;
+}
+#easdb-filter-form .form-text{
+    width: 80px;
+}
+#easdata-filter-form .form-text{
+    width:80px;
+}
+#main{
+    width:1160px
+}
+
+
+#easdata-filter-form .form-item,#easdata-filter-form .form-item label,#easdata-filter-form .buttons{
+    float: left;
+    padding: 4px;
+}
+
+
+#assets-search-form .form-item,#assets-search-form .form-item label,#assets-search-form .buttons{
+    float: left;
+    padding: 4px;
+}
+
+
+#assets-history-search-form .form-item,#assets-history-search-form .form-item label,#assets-history-search-form .buttons{
+    float: left;
+    padding: 4px;
+}
+
+
+#ip-assets-search-form .form-item,#ip-assets-search-form .form-item label,#ip-assets-search-form .buttons{
+    float: left;
+    padding: 4px;
+}
+
+.green {
+	color: green;
+}
+
+.red {
+	color: red;
+}
+
+.brown {
+	color: brown;
+}

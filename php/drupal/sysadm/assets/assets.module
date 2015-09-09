@@ -1,0 +1,1301 @@
+<?php
+function assets_permission() {
+	return array(
+		'access all' => array('title' => '查看所有'),
+                'guest access' => array('title' => '匿名可见')
+	);
+}
+
+/**
+ * Implements hook_menu_block_blocks().
+ */
+function assets_menu_block_blocks() {
+  // The array key is the block delta used by menu block.
+  return array(
+    'assets-1' => array(
+      'menu_name'   => 'main-menu',
+      'parent_mlid' => 0,
+      'title_link'  => 0,
+      'admin_title' => 'first menu 1',
+      'level'       => 1,
+      'follow'      => '0',
+      'depth'       => 0,
+      'expanded'    => 0,
+      'sort'        => 0,
+    ),
+  );
+}
+
+function assets_menu() {
+	$items = array();
+	$items['assets'] = array(
+		'title' => '资产信息',
+		'page callback' => 'assets_list_all',
+		'type' => MENU_NORMAL_ITEM,
+            'access arguments' => array('access all'),
+	);
+        
+        $items['assets_details'] = array(
+		'title' => '资产详情',
+		'page callback' => 'assets_details_list_all',
+		'type' => MENU_CALLBACK,
+            'access arguments' => array('access all'),
+	);
+        
+        $items['ip_assets_details'] = array(
+		'title' => 'IP资产详情',
+		'page callback' => 'ip_assets_details_list_all',
+		'type' => MENU_CALLBACK,
+            'access arguments' => array('access all'),
+	);
+        
+        $items['assets_delete'] = array(
+		'title' => '删除资产信息',
+		'page callback' => 'assets_delete',
+		'type' => MENU_CALLBACK,
+            'access arguments' => array('access all'),
+	);
+        
+        $items['ip_assets_delete'] = array(
+		'title' => '删除IP资产',
+		'page callback' => 'ip_assets_delete',
+		'type' => MENU_CALLBACK,
+            'access arguments' => array('access all'),
+	);
+        
+        $items['assets_restory'] = array(
+		'title' => '还原资产信息',
+		'page callback' => 'assets_restory',
+		'type' => MENU_CALLBACK,
+            'access arguments' => array('access all'),
+	);
+        
+        $items['asset_add_edit'] = array(
+		'title' => '添加资产',
+		'page callback' => 'drupal_get_form',
+		'page arguments' => array('asset_add_edit_form'),
+		'type' => MENU_NORMAL_ITEM,
+                    'access arguments' => array('access all'),
+	);
+        
+        $items['ip_assets_add_edit'] = array(
+		'title' => '添加IP资产',
+		'page callback' => 'drupal_get_form',
+		'page arguments' => array('ip_assets_add_edit_form'),
+		'type' => MENU_NORMAL_ITEM,
+                'access arguments' => array('access all'),
+	);
+        
+        $items['assets_history'] = array(
+		'title' => '历史记录',
+		'page callback' => 'assets_history_list_all',
+		'type' => MENU_CALLBACK,
+                'access arguments' => array('access all'),
+	);
+        
+        $items['ip_assets'] = array(
+		'title' => 'IP资产',
+		'page callback' => 'ip_assets_list_all',
+		'type' => MENU_CALLBACK,
+		'access arguments' => array('access all'),
+	);
+        
+        $items['auto_assets'] = array(
+		'title' => '自动资产采集',
+		'page callback' => 'auto_assets_interface',
+		'type' => MENU_CALLBACK,
+		'access arguments' => array('guest access'),
+	);
+	return $items;
+}
+
+function get_assets_machine_room($given = null) {
+	$rooms = array(1 => '看丹桥机房', 2 => '宁波机房', 3 => '鲁谷机房', 4 => '金华机房', 5 => '腾讯机房', 6 => '台湾机房', 7 => '韩国机房', 8 => '新加坡机房',10 => '公司机房');
+	return isset($given) ? $rooms[$given] : $rooms;
+}
+
+function get_assets_project($given = null) {
+	$projects = array(1 => '公共', 2 => '美食大战老鼠', 3 => '街机三国',4 => '街机之王',5 => '三国手游',6 => '跑跑三国', 7 => '英雄神殿', 8 => '核金弹头', 9 => '战神',12 => '热血骚年',10 => '运维',11 => '客服',13 => '亚瑟王');
+	return isset($given) ? $projects[$given] : $projects;
+}
+
+function get_assets_type($given = null) {
+	$types = array(1 => '物理机', 2 => '虚拟机', 3 => '网络设备', 4 => 'docker');
+	return isset($given) ? $types[$given] : $types;
+}
+
+function get_ip_assets_type($given = null) {
+	$types = array(1 => '网络地址', 2 => '广播地址',3 => '普通地址',4 => '网关',5 => '7dscan');
+	return isset($given) ? $types[$given] : $types;
+}
+
+function get_ip_assets_type_form($given = null) {
+	$types = array(1 => '<span class="red">网络地址</span>', 2 => '<span class="red">广播地址</span>',3 => '普通地址',4 => '<span class="red">网关</span>',5 => '<span class="red">7dscan</span>');
+	return isset($given) ? $types[$given] : $types;
+}
+
+function get_ip_isuse_type($given = null) {
+	$types = array(0 => '未使用', 1 => '已使用',2 => '不能使用');
+        return isset($given) ? $types[$given] : $types;
+}
+
+function get_ip_isuse_type_form($given = null) {
+	$types = array(0 => '<span class="green">未使用</span>', 1 => '<span class="brown">已使用</span>',2 => '<span class="red">不能使用</span>');
+        return isset($given) ? $types[$given] : $types;
+}
+
+function assets_delete($id) {
+        global $user;
+	$result = false;
+        if (is_numeric($id) && $id > 0) {
+                db_set_active('sysadm');
+                
+                $de_value = db_query("SELECT * FROM sysadm_assets WHERE hostid = :id", array(':id' => $id))->fetchAssoc();
+                $add_value=array( 'uid' => $user->uid,'created' => date("Y-m-d h:i:s"));
+                $new_value=$de_value+$add_value;
+                
+                db_insert('sysadm_assets_history')
+                ->fields($new_value)
+                ->execute();
+                
+		db_query("DELETE FROM sysadm_assets WHERE hostid = :id", array(':id' => $id));
+                
+                db_set_active();
+		$result = true;
+	}
+	return drupal_json_output(array('id' => $id, 'result' => $result));
+	exit;
+}
+
+function assets_restory($id){
+    $result = false;
+    if (is_numeric($id) && $id > 0) {
+        db_set_active('sysadm');
+
+        $values = db_query("SELECT * FROM sysadm_assets_history WHERE id = :id", array(':id' => $id))->fetchAssoc();
+        $data = array(
+        'host' => $values['host'],
+        'host_name' => $values['host_name'],
+        'belong_to_project' => $values['belong_to_project'],
+        'system' => $values['system'],
+        'type' => $values['type'],
+        'outer_ip' => $values['outer_ip'],
+        'manage_ip' => $values['manage_ip'],
+        'cpu' => $values['cpu'],
+        'cpu_num' => $values['cpu_num'],
+        'cpu_core' => $values['cpu_core'],
+        'memory' => $values['memory'],
+        'hard_disk' => $values['hard_disk'],
+        'sn' => $values['sn'],
+        'model' => $values['model'],
+        'u_number' => $values['u_number'],
+        'cabinet_location' => $values['cabinet_location'],
+        'machine_room' => $values['machine_room'],
+        'purchase_date' => $values['purchase_date'],
+        'purchase_price' => $values['purchase_price'],
+        'assets_num' => $values['assets_num'],
+        'remarks' => $values['remarks'],
+        );
+        
+        
+        $hostid = db_query("SELECT hostid FROM sysadm_assets WHERE hostid = :hostid", array(":hostid" => $values['hostid']))->fetchField();
+        if($hostid>0){
+            db_query("DELETE FROM sysadm_assets WHERE hostid = :hostid", array(':hostid' => $hostid));
+            
+        }
+
+        db_insert('sysadm_assets')
+        ->fields($data)
+        ->execute();
+
+        db_query("DELETE FROM sysadm_assets_history WHERE id = :id", array(':id' => $id));
+
+        db_set_active();
+        $result = true;
+    }
+    return drupal_json_output(array('id' => $id, 'result' => $result));
+    exit;
+}
+
+function ip_assets_delete($id) {
+	$result = false;
+        if (is_numeric($id) && $id > 0) {
+                db_set_active('sysadm');
+//                $de_value = db_query("SELECT * FROM sysadm_ip_assets WHERE id = :id", array(':id' => $id))->fetchAssoc();
+//                db_insert('sysadm_ip_assets_history')
+//                ->fields($de_value)
+//                ->execute();
+		db_query("DELETE FROM sysadm_ip_assets WHERE id = :id", array(':id' => $id));
+                db_set_active();
+		$result = true;
+	}
+	return drupal_json_output(array('id' => $id, 'result' => $result));
+	exit;
+}
+
+/**
+ * ip_assets.
+ */
+function ip_assets_search_form($form, &$form_state) {
+  $form = array();
+  
+  $type_options = array('_none' => '所有');
+  foreach (get_ip_assets_type() as $key => $one) {
+    $type_options[$key] = $one;
+  }
+  $form['type'] = array(
+    '#type' => 'select',
+    '#title' => '类型',
+    '#options' => $type_options,
+    '#default_value' => (isset($_GET['type']) ? $_GET['type'] : ''),
+  );
+  
+  $isuse_options = array('_none' => '所有');
+  foreach (get_ip_isuse_type() as $key => $one) {
+    $isuse_options[$key] = $one;
+  }
+  $form['isuse'] = array(
+    '#type' => 'select',
+    '#title' => '是否使用',
+    '#options' => $isuse_options,
+    '#default_value' => (isset($_GET['isuse']) ? $_GET['isuse'] : ''),
+  );
+
+  $form['keyword'] = array(
+    '#type' => 'textfield',
+    '#title' => '关键字',
+    '#size' => '20',
+    '#default_value' => (isset($_GET['keyword']) ? $_GET['keyword'] : ''),
+  );
+  
+  $form['submit'] = array(
+      '#type' => 'submit',
+      '#value' => '过滤',
+      '#prefix' => '<div class="buttons">',
+      '#suffix' => '</div>',
+);
+  
+  return $form;
+}
+
+function ip_assets_search_form_submit($form, &$form_state) {
+  $values = $form_state['values'];
+  $params = array(
+    'type' => $values['type'],
+    'isuse' => $values['isuse'],
+    'keyword' => $values['keyword'],
+  );
+  drupal_goto('ip_assets', array('query' => $params));
+}
+
+function ip_assets_list_all() {
+	$out = '';
+        drupal_add_js(drupal_get_path('module', 'assets') . '/assets.js');
+	$page_q = '?page=' . (isset($_GET['page']) ? (int)$_GET['page'] : 0);
+        db_set_active('sysadm');
+        $query = db_select('sysadm_ip_assets', 'a');
+	$query->fields('a');
+        //$query->leftJoin('sysadm_assets', 'b', 'a.ip=b.outer_ip');
+	//$query->addField('b', 'host');
+        //$host = db_or()->condition("a.ip", "%" . $_GET['keyword'] . "%", "LIKE");
+	//  $query->condition($host);
+	if (isset($_GET['type']) && $_GET['type'] != '_none') {
+	  $query->condition('a.type', $_GET['type']);
+	  $page_q .= '&type=' . $_GET['type'];
+	}
+        if (isset($_GET['isuse']) && $_GET['isuse'] != '_none') {
+	  $query->condition('a.isuse', $_GET['isuse']);
+	  $page_q .= '&isuse=' . $_GET['isuse'];
+	}
+	if (isset($_GET['keyword']) && $_GET['keyword']) {
+	  $or_statement = db_or()->condition("a.ip","%" . $_GET['keyword'] . "%", "LIKE")
+                  ->condition("a.remarks", "%" . $_GET['keyword'] . "%", "LIKE");
+	  $query->condition($or_statement);
+	  $page_q .= '&keyword=' . $_GET['keyword'];
+	}
+	$query->orderBy("a.ip", 'DESC');
+	$queryEx = $query->extend('PagerDefault')->limit(20);
+	$count = $query->countQuery()->execute()->fetchField();
+        db_set_active();
+	$rows = array();
+	$form = drupal_get_form('ip_assets_search_form');
+	$out .= drupal_render($form);
+	if ($fetch = $queryEx->execute()->fetchAll()) {
+		foreach ($fetch as $one) {
+                        db_set_active('sysadm');
+                        $host = db_query("SELECT host FROM sysadm_assets WHERE CONCAT(',',outer_ip,',') LIKE :ip", array(":ip" => '%,'.$one->ip.',%'))->fetchField();
+                        db_set_active();
+                    	$operation_str = l('修改', 'ip_assets_add_edit', array('query' => array('id' => $one->id, 'destination' => 'ip_assets' . $page_q)));
+			$operation_str .= ' / ' . l('删除', 'ip_assets_delete/' . $one->id, array('attributes' => array('class' => 'delete_assets_one'))) . ' <span id="delete_assets_loading_' . $one->id . '"></span>';
+			$rows[] = array(
+                                $one->ip,
+                                "<a href=\"ip_assets_details?ip={$host}\" target='_blank'>$host</a>",
+                                get_ip_assets_type_form($one->type),
+                                get_ip_isuse_type_form($one->isuse),
+				$one->network,
+                                $one->remarks,
+                                $operation_str,
+			);
+		}
+		$header = array( '外网IP','内网IP','类型','状态','网络号','备注','操作');
+		$out .= '<div class="clearfix"></div>说明：关键字中可输入外网IP和备注进行搜索，内网IP请到资产页进行搜索。';
+		$out .= theme('table',  array('header' => $header, 'rows' => $rows)) . theme('pager');
+	  $out .= '共有' . $count . '条记录';
+	}
+	else {
+		$out .= '<div class="clearfix"></div>暂无';
+	}
+	return $out;
+}
+
+
+/**
+ * assets_history.
+ */
+function assets_history_search_form($form, &$form_state) {
+  $form = array();
+  
+  $type_options = array('_none' => '所有');
+  foreach (get_assets_type() as $key => $one) {
+    $type_options[$key] = $one;
+  }
+  $form['type'] = array(
+    '#type' => 'select',
+    '#title' => '类型',
+    '#options' => $type_options,
+    '#default_value' => (isset($_GET['type']) ? $_GET['type'] : ''),
+  );
+
+  $machine_room_options = array('_none' => '所有');
+  foreach (get_assets_machine_room() as $key => $one) {
+    $machine_room_options[$key] = $one;
+  }
+  $form['machine_room'] = array(
+    '#type' => 'select',
+    '#title' => '机房',
+    '#options' => $machine_room_options,
+    '#default_value' => (isset($_GET['machine_room']) ? $_GET['machine_room'] : ''),
+  );
+  
+    $project_options = array('_none' => '所有');
+  foreach (get_assets_project() as $key => $one) {
+    $project_options[$key] = $one;
+  }
+  $form['project'] = array(
+    '#type' => 'select',
+    '#title' => '项目',
+    '#options' => $project_options,
+    '#default_value' => (isset($_GET['project']) ? $_GET['project'] : ''),
+  );
+  
+  $form['keyword'] = array(
+    '#type' => 'textfield',
+    '#title' => '关键字',
+    '#size' => '20',
+    '#default_value' => (isset($_GET['keyword']) ? $_GET['keyword'] : ''),
+  );
+  
+  $form['submit'] = array('#type' => 'submit', '#value' => '过滤','#prefix' => '<div class="buttons">',
+      '#suffix' => '</div>',);
+
+  return $form;
+}
+
+function assets_history_search_form_submit($form, &$form_state) {
+  $values = $form_state['values'];
+  $params = array(
+    'type' => $values['type'], 
+    'project' => $values['project'],
+    'machine_room' => $values['machine_room'],
+    'keyword' => $values['keyword'],
+  );
+  drupal_goto('assets_history', array('query' => $params));
+}
+
+function assets_history_list_all() {
+	$out = '';
+        drupal_add_js(drupal_get_path('module', 'assets') . '/assets.js');
+	$page_q = '?page=' . (isset($_GET['page']) ? (int)$_GET['page'] : 0);
+
+        db_set_active('sysadm');
+        $query = db_select('sysadm_assets_history', 'a');
+	$query->fields('a');
+
+
+	if (isset($_GET['type']) && $_GET['type'] != '_none') {
+	  $query->condition('a.type', $_GET['type']);
+	  $page_q .= '&type=' . $_GET['type'];
+	}
+
+	if (isset($_GET['machine_room']) && $_GET['machine_room'] != '_none') {
+	  $query->condition('a.machine_room', $_GET['machine_room']);
+	  $page_q .= '&machine_room=' . $_GET['project'];
+	}
+
+	if (isset($_GET['keyword']) && $_GET['keyword']) {
+	  $or_statement = db_or()->condition("a.host","%" . $_GET['keyword'] . "%", "LIKE")
+                   ->condition("a.outer_ip", $_GET['keyword'])
+                   ->condition("a.host_name", $_GET['keyword'])
+                   ->condition("a.manage_ip", $_GET['keyword'] )
+                   ->condition("a.sn", $_GET['keyword'])
+                   ->condition("a.cabinet_location",  $_GET['keyword'])
+                   ->condition("a.assets_num", $_GET['keyword'])
+                   ->condition("a.remarks", "%" . $_GET['keyword'] . "%", "LIKE")
+                   ->condition("a.uid",$_GET['keyword'])
+                   ->condition("a.created",$_GET['keyword']);
+	  $query->condition($or_statement);
+	  $page_q .= '&keyword=' . $_GET['keyword'];
+	}
+	$query->orderBy("a.created", 'DESC');
+	$queryEx = $query->extend('PagerDefault')->limit(20);
+
+	$count = $query->countQuery()->execute()->fetchField();
+        db_set_active();
+	$rows = array();
+	$form = drupal_get_form('assets_history_search_form');
+	$out .= drupal_render($form);
+	if ($fetch = $queryEx->execute()->fetchAll()) {
+		foreach ($fetch as $one) {
+                    $operation_str = l('还原', 'assets_restory/' . $one->id, array('attributes' => array('class' => 'restory_assets_one'))) . ' <span id="restory_assets_loading_' . $one->id . '"></span>';
+			$rows[] = array(
+                                $one->host,
+                                $one->host_name,
+                                get_assets_project($one->belong_to_project),
+                                $one->system,
+                                get_assets_type($one->type),
+                                $one->outer_ip,
+                                $one->manage_ip,
+                                $one->cpu,
+				($one->cpu_num ? $one->cpu_num : ''),
+                                ($one->cpu_core ? $one->cpu_core : ''),
+                                $one->memory,
+                                $one->hard_disk,
+                                $one->sn,
+                                $one->model,
+                                $one->u_number,
+                                $one->cabinet_location,
+                                get_assets_machine_room($one->machine_room),
+                                $one->purchase_date,
+				($one->purchase_price ? $one->purchase_price : ''),
+                                $one->assets_num,
+                                $one->remarks,
+                                $one->uid,
+                                $one->created,
+                                $operation_str,
+			);
+		}
+		$header = array( '主机IP','主机名','项目','系统','类型','外网IP','管理IP','CPU','CPU数量','CPU核心','内存','硬盘','序列号','主机型号','U数','机柜位置','机房','采购日期','采购价格','资产编号','备注','操作用户','操作时间','操作');
+		$out .= '<div class="clearfix"></div>说明：关键字中可输入主机IP进行搜索。';
+		$out .= theme('table',  array('header' => $header, 'rows' => $rows)) . theme('pager');
+	  $out .= '共有' . $count . '条记录';
+	}
+	else {
+		$out .= '<div class="clearfix"></div>暂无';
+	}
+        
+	return $out;
+}
+
+/**
+ * assets.
+ */
+function assets_search_form($form, &$form_state) {
+  $form = array();
+  
+  $type_options = array('_none' => '所有');
+  foreach (get_assets_type() as $key => $one) {
+    $type_options[$key] = $one;
+  }
+  $form['type'] = array(
+    '#type' => 'select',
+    '#title' => '类型',
+    '#options' => $type_options,
+    '#default_value' => (isset($_GET['type']) ? $_GET['type'] : ''),
+  );
+  
+  $machine_room_options = array('_none' => '所有');
+  foreach (get_assets_machine_room() as $key => $one) {
+    $machine_room_options[$key] = $one;
+  }
+  $form['machine_room'] = array(
+    '#type' => 'select',
+    '#title' => '机房',
+    '#options' => $machine_room_options,
+    '#default_value' => (isset($_GET['machine_room']) ? $_GET['machine_room'] : ''),
+  );
+  
+  $project_options = array('_none' => '所有');
+  foreach (get_assets_project() as $key => $one) {
+    $project_options[$key] = $one;
+  }
+  $form['project'] = array(
+    '#type' => 'select',
+    '#title' => '项目',
+    '#options' => $project_options,
+    '#default_value' => (isset($_GET['project']) ? $_GET['project'] : ''),
+  );
+  
+  $form['keyword'] = array(
+    '#type' => 'textfield',
+    '#title' => '关键字',
+    '#size' => '12',
+    '#default_value' => (isset($_GET['keyword']) ? $_GET['keyword'] : ''),
+  );
+  
+  $form['submit'] = array('#type' => 'submit', '#value' => '过滤','#prefix' => '<div class="buttons">',
+      '#suffix' => '</div>',);
+  
+  $form['export'] = array(
+    '#type' => 'submit',
+    '#value' => '导出IP地址',
+    '#submit' => array('export_ip_addresses'),
+  );
+  
+  return $form;
+}
+
+function export_ip_addresses($form, &$form_state) {
+	$filters = $form_state['values'];
+	db_set_active('sysadm');
+        $query = db_select('sysadm_assets', 'a');
+	$query->fields('a',array('host'));
+
+	if (isset($_GET['type']) && $_GET['type'] != '_none') {
+	  $query->condition('a.type', $_GET['type']);
+	}
+	if (isset($_GET['machine_room']) && $_GET['machine_room'] != '_none') {
+	  $query->condition('a.machine_room', $_GET['machine_room']);
+	}
+        if (isset($_GET['project']) && $_GET['project'] != '_none') {
+	  $query->condition('a.belong_to_project', $_GET['project']);
+	}
+	if (isset($_GET['keyword']) && $_GET['keyword']) {
+	  $or_statement = db_or()->condition("a.host", $_GET['keyword'])
+                   ->condition("a.outer_ip", $_GET['keyword'])
+                   ->condition("a.host_name", $_GET['keyword'])
+                   ->condition("a.manage_ip", $_GET['keyword'] )
+                   ->condition("a.sn", $_GET['keyword'])
+                   ->condition("a.cabinet_location",  $_GET['keyword'])
+                   ->condition("a.assets_num", $_GET['keyword'])
+                   ->condition("a.remarks", "%" . $_GET['keyword'] . "%", "LIKE");
+	  $query->condition($or_statement);
+	}
+	$ips = $query->execute()->fetchCol();
+        db_set_active();
+	$data = implode("\r\n", $ips);
+	$filepath = 'public://ip' . REQUEST_TIME . '.txt';
+	if (!file_unmanaged_save_data($data, $filepath, FILE_EXISTS_REPLACE)) {
+		sys_set_message('生成列表文件失败.');
+		menu_set_active_item('assets');
+		return menu_execute_active_handler(NULL, FALSE);
+	}
+        file_download(file_uri_scheme($filepath), file_uri_target($filepath));
+	exit();
+}
+
+function assets_file_download($uri) {
+	$filename = explode('/', file_uri_target($uri));
+	$file = new stdClass();
+	$file->filename = $filename[count($filename) - 1];
+	$file->filemime = 'application/text';
+	$file->filesize =  filesize($uri);
+	$headers = my_file_get_content_headers($file);
+	return $headers;
+}
+
+/**
+ * 自定义获取headers函数
+ */
+function my_file_get_content_headers($file) {
+    $name = mime_header_encode($file->filename);
+    $type = mime_header_encode($file->filemime);
+  // Serve images, text, and flash content for display rather than download.
+    $inline_types = variable_get('file_inline_types', array('^text/', '^image/', 'flash$'));
+    $disposition = 'attachment';
+    foreach ($inline_types as $inline_type) {
+      // Exclamation marks are used as delimiters to avoid escaping slashes.
+      if (preg_match('!' . $inline_type . '!', $file->filemime)) {
+        $disposition = 'inline';
+   }
+  }
+
+  return array(
+    'Content-Type' => $type . '; name="' . $name . '"',
+    'Content-Length' => $file->filesize,
+    'Content-Disposition' => $disposition . '; filename="' . $name . '"',
+    'Cache-Control' => 'private',
+  );
+
+}
+function assets_search_form_submit($form, &$form_state) {
+  $values = $form_state['values'];
+  $params = array(
+    'type' => $values['type'], 
+    'machine_room' => $values['machine_room'],
+      'project' => $values['project'],
+    'keyword' => $values['keyword'],
+  );
+  drupal_goto('assets', array('query' => $params));
+}
+
+function assets_list_all() {
+	$out = '';
+        drupal_add_js(drupal_get_path('module', 'assets') . '/assets.js');
+	
+	$page_q = '?page=' . (isset($_GET['page']) ? (int)$_GET['page'] : 0);
+
+        db_set_active('sysadm');
+        $query = db_select('sysadm_assets', 'a');
+	$query->fields('a');
+
+
+	if (isset($_GET['type']) && $_GET['type'] != '_none') {
+	  $query->condition('a.type', $_GET['type']);
+	  $page_q .= '&type=' . $_GET['type'];
+	}
+	if (isset($_GET['machine_room']) && $_GET['machine_room'] != '_none') {
+	  $query->condition('a.machine_room', $_GET['machine_room']);
+	  $page_q .= '&machine_room=' . $_GET['machine_room'];
+	}
+        if (isset($_GET['project']) && $_GET['project'] != '_none') {
+	  $query->condition('a.belong_to_project', $_GET['project']);
+	  $page_q .= '&project=' . $_GET['project'];
+	}
+	if (isset($_GET['keyword']) && $_GET['keyword']) {
+	  $or_statement = db_or()->condition("a.host","%" . $_GET['keyword'] . "%", "LIKE")
+                   ->condition("a.outer_ip", $_GET['keyword'])
+                   ->condition("a.host_name", $_GET['keyword'])
+                   ->condition("a.manage_ip", $_GET['keyword'] )
+                   ->condition("a.sn", $_GET['keyword'])
+                   ->condition("a.cabinet_location",  $_GET['keyword'])
+                   ->condition("a.assets_num", $_GET['keyword'])
+                   ->condition("a.remarks", "%" . $_GET['keyword'] . "%", "LIKE");
+	  $query->condition($or_statement);
+	  $page_q .= '&keyword=' . $_GET['keyword'];
+	}
+	$query->orderBy("a.hostid", 'DESC');
+	$queryEx = $query->extend('PagerDefault')->limit(20);
+
+	$count = $query->countQuery()->execute()->fetchField();
+        db_set_active();
+	$rows = array();
+	$form = drupal_get_form('assets_search_form');
+	$out .= drupal_render($form);
+	if ($fetch = $queryEx->execute()->fetchAll()) {
+		foreach ($fetch as $one) {
+			$operation_str = l('修改', 'asset_add_edit', array('query' => array('id' => $one->hostid, 'destination' => 'assets' . $page_q)));
+			$operation_str .= ' / ' . l('删除', 'assets_delete/' . $one->hostid, array('attributes' => array('class' => 'delete_assets_one'))) . ' <span id="delete_assets_loading_' . $one->hostid . '"></span>';
+			$rows[] = array(
+                                "<a href=\"assets_details?id={$one->hostid}\" target='_blank'>$one->host</a>",
+                                get_assets_project($one->belong_to_project),
+                                get_assets_type($one->type),
+				$one->manage_ip,
+                                get_assets_machine_room($one->machine_room),
+                $one->cabinet_location,
+				($one->purchase_date ? $one->purchase_date : '-'),
+                                $one->remarks,
+				$operation_str,
+			);
+		}
+		$header = array('主机IP','项目','类型','管理IP','机房','机柜位置','采购日期','备注','操作');
+		$out .= '<div class="clearfix"></div>说明：关键字中可输入主机IP进行搜索。';
+		$out .= theme('table',  array('header' => $header, 'rows' => $rows)) . theme('pager');
+	  $out .= '共有' . $count . '条记录';
+	}
+	else {
+		$out .= '<div class="clearfix"></div>暂无';
+	}
+        
+	return $out;
+}
+
+
+/**
+ * asset_edit_add_edit.
+ */
+function asset_add_edit_form($form, &$form_state) {
+	$form = array();
+	
+	$de_value = array();
+	if (isset($_GET['id']) && $_GET['id'] > 0) {
+		drupal_set_title('修改资产信息');
+                db_set_active('sysadm');
+		$de_value = db_query("SELECT * FROM {sysadm_assets} WHERE hostid = :id", array(':id' => $_GET['id']))->fetchAssoc();
+                db_set_active();
+	}
+	
+	$form['host'] = array('#type' => 'textfield', '#title' => '主机IP', '#default_value' => (isset($de_value['hostid']) ? $de_value['host'] : ''), '#required' => true);
+
+        $form['host_name'] = array('#type' => 'textfield', '#title' => '主机名', '#default_value' => (isset($de_value['hostid']) ? $de_value['host_name'] : ''));
+        
+        $form['belong_to_project'] = array(
+		'#type' => 'select',
+		'#title' => '项目',
+		'#options' => get_assets_project(),
+		'#default_value' => (isset($de_value['hostid']) ? $de_value['belong_to_project'] : ''),
+		'#required' => true,
+	);
+        
+	$form['system'] = array('#type' => 'textfield', '#title' => '操作系统', '#default_value' => (isset($de_value['hostid']) ? $de_value['system'] : ''));
+	
+        $form['type'] = array(
+		'#type' => 'select',
+		'#title' => '类型',
+		'#options' => get_assets_type(),
+		'#default_value' => (isset($de_value['hostid']) ? $de_value['type'] : ''),
+		'#required' => true,
+	);
+        
+        
+	$form['outer_ip'] = array('#type' => 'textfield', '#title' => '外网IP', '#default_value' => (isset($de_value['hostid']) ? $de_value['outer_ip'] : ''));
+	
+	$form['manage_ip'] = array('#type' => 'textfield', '#title' => '管理IP', '#default_value' => (isset($de_value['hostid']) ? $de_value['manage_ip'] : ''));
+	
+	$form['cpu'] = array('#type' => 'textfield', '#title' => 'CPU型号', '#default_value' => (isset($de_value['hostid']) ? $de_value['cpu'] : ''), '');
+
+        $form['cpu_num'] = array('#type' => 'textfield', '#title' => 'CPU数量', '#default_value' => (isset($de_value['hostid']) ? $de_value['cpu_num'] : ''));
+	
+        $form['cpu_core'] = array('#type' => 'textfield', '#title' => 'CPU核心', '#default_value' => (isset($de_value['hostid']) ? $de_value['cpu_core'] : ''));
+        
+        $form['memory'] = array('#type' => 'textfield', '#title' => '内存', '#default_value' => (isset($de_value['hostid']) ? $de_value['memory'] : ''));
+        
+        $form['hard_disk'] = array('#type' => 'textfield', '#title' => '硬盘', '#default_value' => (isset($de_value['hostid']) ? $de_value['hard_disk'] : ''));
+        
+        $form['sn'] = array('#type' => 'textfield', '#title' => '序列号', '#default_value' => (isset($de_value['hostid']) ? $de_value['sn'] : ''));
+        
+	$form['model'] = array('#type' => 'textfield', '#title' => '型号', '#default_value' => (isset($de_value['hostid']) ? $de_value['model'] : ''));
+	
+	$form['u_number'] = array('#type' => 'textfield', '#title' => 'U数', '#default_value' => (isset($de_value['hostid']) ? $de_value['u_number'] : ''), '#required' => false);
+	
+	$form['cabinet_location'] = array('#type' => 'textfield', '#title' => '机柜位置', '#default_value' => (isset($de_value['hostid']) ? $de_value['cabinet_location'] : ''), '#required' => false);
+        
+	$form['machine_room'] = array(
+		'#type' => 'select',
+		'#title' => '机房',
+		'#options' => get_assets_machine_room(),
+		'#default_value' => (isset($de_value['hostid']) ? $de_value['machine_room'] : ''),
+		'#required' => true,
+	);
+        
+	$date_year_range = (2010 - date('Y')) . ':1';
+	$form['purchase_date'] = array(
+		'#type' => 'date_popup',
+		'#title' => '购买日期',
+		'#default_value' => (isset($de_value['hostid']) ? $de_value['purchase_date'] : date('Y-m-d')),
+		'#required' => false,
+		'#size' => 12,
+		'#maxlength' => 12,
+		'#date_format' => 'Y-m-d',
+		'#date_timezone_handling' => 'user',
+		'#date_timezone_db' => 'UTC',
+		'#date_year_range' => $date_year_range,
+		'#date_type' => 'DATE_UNIX',
+		'#date_granularity' => array('Y', 'M', 'D')
+	);
+	
+	$form['purchase_price'] = array('#type' => 'textfield', '#title' => '购买价格', '#default_value' => (isset($de_value['hostid']) ? $de_value['purchase_price'] : ''), '#required' => false);
+	$form['assets_num'] = array('#type' => 'textfield', '#title' => '资产编号', '#default_value' => (isset($de_value['hostid']) ? $de_value['assets_num'] : ''), '');
+        $form['remarks'] = array('#type' => 'textfield', '#title' => '备注信息', '#default_value' => (isset($de_value['hostid']) ? $de_value['remarks'] : ''), '');
+	$form['hostid'] = array('#type' => 'hidden', '#value' => (isset($de_value['hostid']) ? $de_value['hostid'] : 0));
+	$form['submit'] = array('#type' => 'submit', '#value' => '保存');
+	
+	return $form;
+}
+
+function asset_add_edit_form_submit($form, &$form_state) {
+        global $user;
+	$values = $form_state['values'];
+
+	$data = array(
+                'host' => $values['host'],
+                'host_name' => (isset($values['host_name'])?$values['host_name']:''),
+                'belong_to_project' => (isset($values['belong_to_project'])?$values['belong_to_project']:''),
+                'system' => (isset($values['system'])?$values['system']:''),
+                'type' => (isset($values['type'])?$values['type']:1),
+                'outer_ip' => (isset($values['outer_ip'])?$values['outer_ip']:''),
+                'manage_ip' => (isset($values['manage_ip'])?$values['manage_ip']:''),
+                'cpu' => (isset($values['cpu'])?$values['cpu']:''),
+                'cpu_num' => ($values['cpu_num']>0?$values['cpu_num']:null),
+                'cpu_core' => ($values['cpu_core']>0?$values['cpu_core']:null),
+                'memory' => (isset($values['memory'])?$values['memory']:''),
+                'hard_disk' => (isset($values['hard_disk'])?$values['hard_disk']:''),
+                'sn' => (isset($values['sn'])?$values['sn']:''),
+                'model' => (isset($values['model'])?$values['model']:''),
+                'u_number' => (isset($values['u_number'])?$values['u_number']:''),
+		'cabinet_location' => (isset($values['cabinet_location'])?$values['cabinet_location']:''),
+                'machine_room' => $values['machine_room'],
+		'purchase_date' => $values['purchase_date'],
+		'purchase_price' => ($values['purchase_price']>0 ? $values['purchase_price'] : null),
+                'assets_num' => (isset($values['assets_num'])?$values['assets_num']:''),
+                'remarks' => (isset($values['remarks'])?$values['remarks']:''),
+	);
+        
+        db_set_active('sysadm');
+	if($values['hostid']>0) {
+            $de_value = db_query("SELECT * FROM {sysadm_assets} WHERE hostid = :id", array(':id' => $values['hostid']))->fetchAssoc();
+            $add_value=array( 'uid' => $user->uid,'created' => date("Y-m-d H:i:s"));
+            $new_value=$de_value+$add_value;
+
+            db_insert('sysadm_assets_history')
+            ->fields($new_value)
+            ->execute();
+
+            db_update("sysadm_assets")
+            ->condition("hostid", $values['hostid'])
+            ->fields($data)
+            ->execute();
+            
+            if($de_value['outer_ip']!=$values['outer_ip']) {
+                if($values['outer_ip']="") {
+                db_update("sysadm_ip_assets")
+                    ->condition("ip", $values['outer_ip'])
+                    ->fields(array('isuse' => 0))
+                    ->execute();
+                }
+                else{
+                    db_update("sysadm_ip_assets")
+                        ->condition("ip", $values['outer_ip'])
+                        ->fields(array('isuse' => 1))
+                        ->execute();
+                    }
+            }
+
+        }
+	else {
+            db_insert('sysadm_assets')
+            ->fields($data)
+            ->execute();
+            
+            if($values['outer_ip']="") {
+                db_update("sysadm_ip_assets")
+                    ->condition("ip", $values['outer_ip'])
+                    ->fields(array('isuse' => 0))
+                    ->execute();
+                }
+                else{
+                    db_update("sysadm_ip_assets")
+                        ->condition("ip", $values['outer_ip'])
+                        ->fields(array('isuse' => 1))
+                        ->execute();
+                    }
+	}
+        
+
+        
+            db_set_active();
+            drupal_set_message('保存成功');
+        }
+
+/**
+ * ip_asset_edit_add_edit.
+ */
+function ip_assets_add_edit_form($form, &$form_state) {
+	$form = array();
+	$de_value = array();
+	if (isset($_GET['id']) && $_GET['id'] > 0) {
+		drupal_set_title('修改IP资产');
+                db_set_active('sysadm');
+		$de_value = db_query("SELECT * FROM {sysadm_ip_assets} WHERE id = :id", array(':id' => $_GET['id']))->fetchAssoc();
+                db_set_active();
+	}
+	
+
+        $form['ip'] = array('#type' => 'textfield', '#title' => 'IP', '#default_value' => (isset($de_value['ip']) ? $de_value['ip'] : ''),'#required' => true);
+        
+        $form['type'] = array(
+		'#type' => 'select',
+		'#title' => '类型',
+		'#options' => get_ip_assets_type(),
+		'#default_value' => (isset($de_value['id']) ? $de_value['type'] : ''),
+	);
+        
+        $form['network'] = array('#type' => 'textfield', '#title' => '网络号', '#default_value' => (isset($de_value['network']) ? $de_value['network'] : ''),'#required' => true);
+          
+        $form['isuse'] = array(
+		'#type' => 'select',
+		'#title' => '是否使用',
+		'#options' => get_ip_isuse_type(),
+		'#default_value' => (isset($de_value['id']) ? $de_value['isuse'] : ''),
+	);
+        $form['remarks'] = array('#type' => 'textfield', '#title' => '备注信息', '#default_value' => (isset($de_value['hostid']) ? $de_value['remarks'] : ''), '');
+	$form['id'] = array('#type' => 'hidden', '#value' => (isset($de_value['id']) ? $de_value['id'] : 0));
+	$form['submit'] = array('#type' => 'submit', '#value' => '保存');
+	
+	return $form;
+}
+
+function ip_assets_add_edit_form_submit($form, &$form_state) {
+	$values = $form_state['values'];
+
+	$data = array(
+                'ip' => (isset($values['ip'])?$values['ip']:''),
+                'type' => (isset($values['type'])?$values['type']:null),
+		'network' => (isset($values['network'])?$values['network']:''),
+                'isuse' => (isset($values['isuse'])?$values['isuse']:null),
+                'remarks' => (isset($values['remarks'])?$values['remarks']:''),
+	);
+        
+        db_set_active('sysadm');
+	if($values['id']>0) {
+//                db_query("SELECT * FROM {sysadm_ip_assets} WHERE hostid = :id", array(':id' => $_GET['id']))->fetchAssoc();
+//                db_insert('sysadm_ip_assets_history')
+//                ->fields($de_value)
+//                ->execute();
+            
+		db_update("sysadm_ip_assets")
+		->condition("id", $values['id'])
+		->fields($data)
+		->execute();
+	}
+	else {
+		db_insert('sysadm_ip_assets')
+		->fields($data)
+		->execute();
+	}
+        db_set_active();
+	drupal_set_message('保存成功');
+}
+
+/**
+ * assets_details.
+ */
+function assets_details_list_all() {
+	$out = '';
+        drupal_add_js(drupal_get_path('module', 'assets') . '/assets.js');
+        db_set_active('sysadm');
+        if (isset($_GET['id']) && $_GET['id'] > 0) {
+		$fetch = db_query("SELECT * FROM {sysadm_assets} WHERE hostid = :id", array(':id' => $_GET['id']))->fetchAssoc();
+	}
+        db_set_active();
+	$rows = array();
+	$out .= drupal_render($form);
+	if ($fetch) {
+			$operation_str = l('修改', 'asset_add_edit', array('query' => array('id' => $fetch['hostid'],'destination' => 'assets_details?id=' . $_GET['id'])));
+			$operation_str .= ' / ' . l('删除', 'assets_delete/' . $fetch['hostid'], array('attributes' => array('class' => 'delete_assets_one'))) . ' <span id="delete_assets_loading_' . $fetch['hostid'] . '"></span>';
+			$rows[] = array(
+                                $fetch['host'],
+                                $fetch['host_name'],
+				get_assets_project($fetch['belong_to_project']),
+                                $fetch['system'],
+                                get_assets_type($fetch['type']),
+				$fetch['outer_ip'],
+                                $fetch['manage_ip'],
+                                $fetch['cpu'],
+                                $fetch['cpu_num']>0?$fetch['cpu_num']:null,
+                                $fetch['cpu_core']>0?$fetch['cpu_core']:null,
+                                $fetch['memory'],
+                                $fetch['hard_disk'],
+                                $fetch['sn'],
+				$fetch['model'],
+                                $fetch['u_number'],
+                                $fetch['cabinet_location'],
+                                get_assets_machine_room($fetch['machine_room']),
+				$fetch['purchase_date'],
+				$fetch['purchase_price']>0?$fetch['purchase_price']:null,
+				$fetch['assets_num'],
+                                $fetch['remarks'],
+				$operation_str,
+			);
+		$header = array( '主机IP','主机名','项目','系统','类型','外网IP','管理IP','CPU','CPU数量','CPU核心','内存','硬盘','序列号','主机型号','U数','机柜位置','机房','采购日期','采购价格','资产编号','备注','操作');
+		$out .= theme('table',  array('header' => $header, 'rows' => $rows)) . theme('pager');
+	}
+	else {
+		$out .= '<div class="clearfix"></div>暂无';
+	}
+        
+	return $out;
+}
+
+
+/**
+ * ip_assets_details.
+ */
+function ip_assets_details_list_all() {
+	$out = '';
+        drupal_add_js(drupal_get_path('module', 'assets') . '/assets.js');
+        db_set_active('sysadm');
+        if(isset($_GET['ip'])){
+                $fetch = db_query("SELECT * FROM {sysadm_assets} WHERE host = :ip", array(':ip' => $_GET['ip']))->fetchAssoc();
+                //print_r($fetch);
+                //exit();
+        }
+        db_set_active();
+	$rows = array();
+	$out .= drupal_render($form);
+	if ($fetch) {
+                        $operation_str = l('修改', 'asset_add_edit', array('query' => array('id' => $fetch['hostid'],'destination' => 'assets_details?id=' . $fetch['hostid'])));
+			$operation_str .= ' / ' . l('删除', 'assets_delete/' . $fetch['hostid'], array('attributes' => array('class' => 'delete_assets_one'))) . ' <span id="delete_assets_loading_' . $fetch['hostid'] . '"></span>';
+                        $rows[] = array(
+                                $fetch['host'],
+                                $fetch['host_name'],
+				get_assets_project($fetch['belong_to_project']),
+                                $fetch['system'],
+                                get_assets_type($fetch['type']),
+				$fetch['outer_ip'],
+                                $fetch['manage_ip'],
+                                $fetch['cpu'],
+                                $fetch['cpu_num']>0?$fetch['cpu_num']:null,
+                                $fetch['cpu_core']>0?$fetch['cpu_core']:null,
+                                $fetch['memory'],
+                                $fetch['hard_disk'],
+                                $fetch['sn'],
+				$fetch['model'],
+                                $fetch['u_number'],
+                                $fetch['cabinet_location'],
+                                get_assets_machine_room($fetch['machine_room']),
+				$fetch['purchase_date'],
+				$fetch['purchase_price']>0?$fetch['purchase_price']:null,
+				$fetch['assets_num'],
+                                $fetch['remarks'],
+				$operation_str,
+			);
+		$header = array( '主机IP','主机名','项目','系统','类型','外网IP','管理IP','CPU','CPU数量','CPU核心','内存','硬盘','序列号','主机型号','U数','机柜位置','机房','采购日期','采购价格','资产编号','备注','操作');
+		$out .= theme('table',  array('header' => $header, 'rows' => $rows)) . theme('pager');
+	}
+	else {
+		$out .= '<div class="clearfix"></div>暂无';
+	}
+        
+	return $out;
+}
+
+function auto_assets_interface() {
+	if(isset($_POST['data'])) {
+            $info=explode(',',$_POST['data']);
+            $pos = strpos($info[1],' ');
+            if($pos>0)
+            {
+            $host = substr($info[1],0,$pos);
+            $outer_ip = substr($info[1],$pos+1);
+            }
+            else
+            {
+                $host = $info[1];
+                $outer_ip="";
+            }
+            
+            $ipnum=explode('.',$host,4);
+            if($ipnum[3]>1 && $ipnum[3]<=29 || $host=="10.1.1.254")
+            {
+                $type=1;
+            }
+            else if ($ipnum[3]>=30 && $ipnum[3]<256)
+            {
+                $type=2;
+            }
+            else
+            {
+                $type=null;
+            }
+            
+            switch($ipnum[1])
+            {
+                case 0:
+                    $room=10;
+                    break;
+                case 1:
+                    $room=1;
+                    break;
+                case 2:
+                case 4:
+                    $room=3;
+                    break;
+                case 3:
+                    $room=4;
+                    break;
+                default :
+                    $room=null;
+            }
+            
+            $arrpro = array('ms'=>2,'sg_'=>3,'sgsy'=>5,'pp'=>6,'yx'=>7,'hj'=>8,'kz'=>9,'sa'=>10,'gx'=>12,'rx'=>12);
+            $project=null;
+            foreach($arrpro as $key => $val){
+                if(stripos($info[0],$key)>0){
+                    $project = $val;
+                    break;
+                }
+            }
+            
+            db_set_active('sysadm');
+            $values = db_query("SELECT * FROM sysadm_assets WHERE host = :ip", array(":ip" => $host))->fetchAssoc();
+            if($values['hostid']>0){
+                $arr = array();
+                if($values['host_name']!=$info[0] && $info[0]!= "")
+                {
+                    db_update("sysadm_assets")
+                        ->condition("host", $values['host'])
+                        ->fields(array('host_name' => $info[0]))
+                        ->execute();
+                    $arr[]='host_name';  
+                }
+                
+                if($values['belong_to_project']!=$project && $project!= null)
+                {
+                    db_update("sysadm_assets")
+                        ->condition("host", $values['host'])
+                        ->fields(array('belong_to_project' => $project))
+                        ->execute();
+                    $arr[]='belong_to_project';  
+                }
+                
+                if($values['system']!=$info[2] && $info[2]!= "")
+                {
+                    db_update("sysadm_assets")
+                        ->condition("host", $values['host'])
+                        ->fields(array('system' => $info[2]))
+                        ->execute();
+                    $arr[]='system';
+                }
+                
+                if($values['type']!=$type && $type!= null)
+                {
+                    db_update("sysadm_assets")
+                        ->condition("host", $values['host'])
+                        ->fields(array('type' => $type))
+                        ->execute();
+                    $arr[]='type';  
+                }
+                
+                if($values['outer_ip']!=$outer_ip)
+                {
+                    db_update("sysadm_assets")
+                        ->condition("host", $values['host'])
+                        ->fields(array('outer_ip' => $outer_ip))
+                        ->execute();
+
+                    if($values['host']!=""){
+                    db_update("sysadm_ip_assets")
+                        ->condition("ip", $values['host'])
+                        ->fields(array('isuse' => 0))
+                        ->execute();
+                    }
+
+                    if($outer_ip!=""){
+                    db_update("sysadm_ip_assets")
+                        ->condition("ip", $outer_ip)
+                        ->fields(array('isuse' => 1))
+                        ->execute();
+                    }
+
+                    $arr[]='outer_ip';
+                }
+                if($values['cpu']!=$info[3] && $info[3]!= "")
+                {
+                    db_update("sysadm_assets")
+                        ->condition("host", $values['host'])
+                        ->fields(array('cpu' => $info[3]))
+                        ->execute();
+                    $arr[]='cpu';
+                }
+                if($values['cpu_num']!=$info[4] && $info[4]!= "")
+                {
+                    db_update("sysadm_assets")
+                        ->condition("host", $values['host'])
+                        ->fields(array('cpu_num' => $info[4]))
+                        ->execute();
+                    $arr[]='cpu_num';
+                }
+                if($values['cpu_core']!=$info[5] && $info[5]!= "")
+                {
+                    db_update("sysadm_assets")
+                        ->condition("host", $values['host'])
+                        ->fields(array('cpu_core' => $info[5]))
+                        ->execute();
+                    $arr[]='cpu_core';
+                }
+                if($values['memory']!=$info[6] && $info[6]!= "")
+                {
+                    db_update("sysadm_assets")
+                        ->condition("host", $values['host'])
+                        ->fields(array('memory' => $info[6]))
+                        ->execute();
+                    $arr[]='memory';
+                }
+                
+                if($values['hard_disk']!=$info[7] && $info[7]!= "")
+                {
+                    db_update("sysadm_assets")
+                        ->condition("host", $values['host'])
+                        ->fields(array('hard_disk' => $info[7]))
+                        ->execute();
+                    $arr[]='hard_disk';
+                }
+                
+                if($values['machine_room']!=$room && $room!= null)
+                {
+                    db_update("sysadm_assets")
+                        ->condition("host", $values['host'])
+                        ->fields(array('machine_room' => $room))
+                        ->execute();
+                    $arr[]='machine_room';  
+                }
+
+                if(!empty($arr))
+                {
+                foreach($arr as $one)
+                {
+                    $content=$content.' '.$one; 
+                }
+
+                $time=time();
+                $md5=md5("NJS8HrXBs4v0rtZglEsX".$time);
+                $data=array('rtx_user'=>'sharlockqi@123u.com',
+                    'msg'=>'报告大王！主机 '.$host.' 信息发现异同，已自动更新 '.$content.' ，请审核。',
+                    'time'=>$time,
+                    'secret'=>$md5,
+                    'email_user'=>'sharlockqi@123u.com',
+                    );
+
+                curl_send_get("http://sa.123u.com/alert/sendmail.php?",$data);
+                }
+            }
+            else {
+                $de_value=array('host' => $host,'host_name' => $info[0],'belong_to_project' => $project,'system' => $info[2],'type' => $type,'outer_ip' => $outer_ip,'cpu' => $info[3],'cpu_num' => $info[4],'cpu_core' => $info[5],'memory' => $info[6],'hard_disk' => $info[7],'machine_room' => $room);
+                db_insert('sysadm_assets')
+                    ->fields($de_value)
+                    ->execute();
+                
+                if(!empty($outer_ip))
+                {
+                    db_update("sysadm_ip_assets")
+                        ->condition("ip", $outer_ip)
+                        ->fields(array('isuse' => 1))
+                        ->execute();
+                }
+                
+                $time=time();
+                $md5=md5("NJS8HrXBs4v0rtZglEsX".$time);
+                $data=array('rtx_user'=>'sharlockqi@123u.com',
+                    'msg'=>'报告大王！发现新增主机 '.$host.' ，已更新插入，请审核。',
+                    'time'=>$time,
+                    'secret'=>$md5,
+                    'email_user'=>'sharlockqi@123u.com',
+                    );
+
+                curl_send_get("http://sa.123u.com/alert/sendmail.php?",$data);
+            }
+            db_set_active();
+        }
+        
+        if(isset($_POST['chd'])) {
+            $filepath = 'public://chd.txt';
+            file_unmanaged_save_data($_POST['chd'], $filepath, FILE_EXISTS_REPLACE);
+        }
+        exit;
+}
+
+function curl_send_get($url,$data)
+{
+    $ch = curl_init();
+    curl_setopt($ch, CURLOPT_URL, $url.http_build_query($data));
+    $output = curl_exec($ch);
+    curl_close($ch);
+    /**
+    {
+
+        $url = "http://sa.123u.com/alert/sendmail.php?rtx_user=sharlockqi@123u.com&msg=报告大王！主机 $host 发现异同信息，已自动更新，请审核。&time=$time&secret=$md5&email_user=sharlockqi@123u.com";
+        $ret = file_get_contents($url);
+        print_r($ret);
+    }
+    **/
+}

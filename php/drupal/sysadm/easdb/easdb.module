@@ -1,0 +1,293 @@
+<?php
+function easdb_menu() {
+//	drupal_add_css(drupal_get_path('module', 'easdb') . '/sysadm.css');
+	$items = array();
+	$items['easdb'] = array(
+		'title' => 'easdb',
+		'page callback' => 'easdb_list_all',
+		'type' => MENU_NORMAL_ITEM,
+            'access arguments' => array('access all'),
+	);
+        
+        $items['easdata'] = array(
+		'title' => 'easdata',
+		'page callback' => 'easdata_list_all',
+		'type' => MENU_CALLBACK,
+            'access arguments' => array('access all'),
+	);
+        
+        $items['anyterm'] = array(
+		'title' => 'anyterm',
+		'page callback' => 'anyterm_list_all',
+		'type' => MENU_CALLBACK,
+            'access arguments' => array('access all'),
+	);
+        
+	return $items;
+}
+
+function anyterm_list_all()
+{
+    if (isset($_GET['file']) && $_GET['file'] > 0) {
+        $filename="anyterm.id";
+        $fp=fopen("$filename", "w+");
+        if ( !is_writable($filename) ){
+            die("文件:" .$filename. "不可写，请检查！");
+        }
+        fwrite($fp, "{$_GET['file']}");
+        fclose($fp);
+        drupal_goto('http://sysadm.123u.com:7777');
+    }
+}
+
+function easdb_filter_form($form, &$form_state) {
+	$form = array();
+        $form['name'] = array(
+		'#type' => 'textfield',
+                '#title' => '用户名',
+                '#size' => 20,
+                '#attributes'=> array('class' => array('form-item-name')),
+        );
+	
+	$date_year_range = (2014 - (int)date('Y')) . ':0';
+	$form['date_s'] = array(
+		'#type' => 'date_popup',
+		'#title' => '开始时间',
+		'#date_format' => 'Y-m-d  H:i',
+		'#date_year_range' => $date_year_range,
+		'#default_value' => (isset($_GET['date_s']) ? $_GET['date_s'] : ''),
+		'#date_label_position' => 'within',
+		'#prefix' => '<div class="date-popup-range">',
+                '#attributes'=> array('class' => array('form-item-date-s')),
+	);
+	
+	$form['date_e'] = array(
+		'#type' => 'date_popup',
+		'#title' => '结束时间',
+		'#date_format' => 'Y-m-d H:i',
+		'#date_year_range' => $date_year_range,
+		'#default_value' => (isset($_GET['date_e']) ? $_GET['date_e'] : ''),
+		'#date_label_position' => 'within',
+		'#suffix' => '</div>',
+                '#attributes'=> array('class' => array('form-item-date-e')),
+	);
+
+	$form['content'] = array(
+		'#type' => 'textfield',
+		'#title' => '内容查找',
+		'#size' => 20,
+	);
+	
+	$form['submit'] = array(
+		'#type' => 'submit', 
+		'#value' => '查询',
+		'#prefix' => '<div class="buttons">',
+		'#suffix' => '</div>',
+                '#attributes'=> array('class' => array('form-item-submit')),
+	);
+	
+	return $form;
+}
+
+function easdb_filter_form_submit($form, &$form_state) {
+        form_state_values_clean($form_state);
+        $values = array_filter($form_state['values']);
+        $cur_url = $_GET['q'];
+        drupal_goto($cur_url, array('query' => $values));
+}
+
+
+function easdb_list_all() 
+{
+	//drupal_add_js(drupal_get_path('module', 'easdb') . '/easdb.js');
+	$out = '';
+	$form = drupal_get_form('easdb_filter_form');
+	$out .= drupal_render($form);
+
+	if(!empty($_GET['content']))
+	{
+		drupal_goto('easdata',array('query' => array('content' => $_GET['content'],'date_s'=>$_GET['date_s'],'date_e'=>$_GET['date_e'])));
+	}
+	
+	$header = array(
+		array('data' => 'username', 'class' => 'table-easdb-username'),
+		array('data' => 'uid','class' => 'table-easdb-uid'),
+		array('data' => 'groupname', 'class' => 'table-easdb-groupname'),
+		array('data' => 'gid', 'class' => 'table-easdb-gid'),
+		array('data' => 'port', 'class' => 'table-easdb-port'),
+		array('data' => 'terminal', 'class' => 'table-easdb-terminal'),
+                array('data' => 'status','class' => 'table-easdb-status'),
+                array('data' => 'ip','class' => 'table-easdb-ip'),
+                array('data' => 'file_session','class' => 'table-easdb-file_session'),
+                array('data' => 'pid','class' => 'table-easdb-pid'),
+                array('data' => 'created', 'class' => 'table-easdb-created'),
+                array('','class' => 'table-easdb-look')
+            );
+        db_set_active('eas');
+        $query = db_select("session", "s")->extend("PagerDefault");
+        $query->fields("s", array('id', 'real_uid', 'real_gid', 'real_pw_name', 'real_gr_name', 'port', 'terminal','status','client_ip','file_session','pid','created'));
+
+	if(!empty($_GET['name']))
+        {
+        $query->condition('s.real_pw_name','%' . $_GET['name'] . '%','LIKE');
+	}
+
+	if(!empty($_GET['date_s'])) {
+		$query->condition('s.created', $_GET['date_s'] . ':00', '>=');
+	}
+
+	if(!empty($_GET['date_e'])) {
+		$query->condition('s.created', $_GET['date_e'] . ':59', '<=');
+	}
+
+        $query->limit(20)-> orderBy('id','DESC');
+         $fetch = $query->execute()->fetchAll();
+	db_set_active();
+
+	$rows = array();
+       
+        foreach ($fetch as $key => $one)
+        {
+            $file=explode("-",$one->file_session);
+            $rows[] = array(
+                    $one->real_pw_name,
+                    $one->real_uid,
+                    $one->real_gr_name,
+                    $one->real_gid,
+                    $one->port,
+                    $one->terminal,
+                    $one->status,
+                    $one->client_ip,
+                    $one->file_session,
+                    $one->pid,
+                    $one->created,
+//                "<a href=\"easdata?id={$one->id}\">查看操作</a>".' / '."<a href=\"anyterm?file={$file[1]}\" target = '_blank'>回放操作</a>",
+                "<a href=\"easdata?id={$one->id}\">查看操作</a>",
+                        );
+	}
+	
+	$out .= theme('table',  array('header' => $header, 'rows' => $rows, 'caption' => '<h3>数据如下：</h3>', 'empty' => '没有记录。', 'attributes' => array())) . theme('pager');
+	
+        return $out;
+}
+
+function easdata_filter_form($form, &$form_state) {
+	$form = array();
+
+	$date_year_range = (2014 - (int)date('Y')) . ':0';
+	$form['date_s'] = array(
+		'#type' => 'date_popup',
+		'#title' => '开始时间',
+		'#date_format' => 'Y-m-d  H:i',
+		'#date_year_range' => $date_year_range,
+		'#default_value' => (isset($_GET['date_s']) ? $_GET['date_s'] : ''),
+		'#date_label_position' => 'within',
+		'#prefix' => '<div class="date-popup-range">',
+		'#attributes'=> array('class' => array('form-item-date-s')),
+	);
+
+	$form['date_e'] = array(
+		'#type' => 'date_popup',
+		'#title' => '结束时间',
+		'#date_format' => 'Y-m-d H:i',
+		'#date_year_range' => $date_year_range,
+		'#default_value' => (isset($_GET['date_e']) ? $_GET['date_e'] : ''),
+		'#date_label_position' => 'within',
+		'#suffix' => '</div>',
+		'#attributes'=> array('class' => array('form-item-date-e')),
+	);
+
+	$form['content'] = array(
+		'#type' => 'textfield',
+                '#title' => '内容查找',
+                '#size' => 20,
+        );
+        
+	$form['submit'] = array(
+		'#type' => 'submit', 
+		'#value' => '查询',
+		'#prefix' => '<div class="buttons">',
+		'#suffix' => '</div>',
+	);
+        
+        
+        $form['id'] = array('#type' => 'hidden', '#value' => $_GET['id']);
+	
+	return $form;
+}
+
+function easdata_filter_form_submit($form, &$form_state) {
+    
+        form_state_values_clean($form_state);
+        $values = array_filter($form_state['values']);
+        $cur_url = $_GET['q'];
+        drupal_goto($cur_url, array('query' => $values));
+}
+
+function easdata_list_all() 
+{
+//	drupal_add_css(drupal_get_path('modules', 'easdb') . '/easdb.css');
+	
+	$out = '';
+	$form = drupal_get_form('easdata_filter_form');
+	$out .= drupal_render($form);
+	
+	$header = array(
+		array('data' => 'id','class' => 'table-easdata-id','sort' => 'desc'),
+		array('data' => 'uname','class' => 'table-easdata-uname'),
+		array('data' => 'sessionID','class' => 'table-easdata-sessionID'),
+		array('data' => 'io', 'class' => 'table-easdata-io'),
+		array('data' => 'sec', 'class' => 'table-easdata-sec'),
+//		array('data' => 'usec', 'class' => 'table-easdata-usec'),
+		array('data' => 'len', 'class' => 'table-easdata-len'),
+		array('data' => 'data', 'class' => 'table-easdata-data'),
+
+            );
+        db_set_active('eas');//选择eas数据库
+        $query = db_select("data", "d")->extend("PagerDefault");
+//        $query->fields("d", array('id', 'sessionID', 'io', 'sec', 'usec', 'len', 'data'));
+        $query->fields("d", array('id', 'sessionID', 'io', 'sec', 'len', 'data'));
+	$query->leftJoin("session","s","d.sessionID=s.id");
+	$query->fields("s",array('real_pw_name'));
+	if(!empty($_GET['id']))
+        {
+        $query->condition('d.sessionID',$_GET['id'],'=');
+	}
+
+	if(!empty($_GET['date_s'])) {
+		$query->condition('d.sec', strtotime($_GET['date_s'] . ':00'), '>=');
+	}
+
+	if(!empty($_GET['date_e'])) {
+		$query->condition('d.sec', strtotime($_GET['date_e'] . ':59'), '<=');
+	}
+
+	if(!empty($_GET['content']))
+        {
+        $query->condition('d.data','%' . $_GET['content'] . '%','LIKE');
+	}
+
+        $query->limit(20);
+         $fetch = $query->execute()->fetchAll();
+	db_set_active();
+	
+	$rows = array();
+       
+        foreach ($fetch as $key => $one)
+        {
+		$rows[] = array(
+			$one->id,
+			$one->real_pw_name,
+			$one->sessionID,
+			$one->io,
+			date('Y-m-d H:i:s',$one->sec),
+//			usec,
+			$one->len,
+			$one->data,
+		);
+	}
+	
+	$out .= theme('table',  array('header' => $header, 'rows' => $rows, 'caption' => '<h3>数据如下：</h3>', 'empty' => '没有记录。', 'attributes' => array())) . theme('pager');
+	
+        return $out;
+}

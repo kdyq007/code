@@ -1,0 +1,5 @@
+name = Home login
+description = 自定义login模块。使用域账户登陆
+version = "7.x-1.0"
+core = 7.x
+package = family信息化平台
